@@ -65,61 +65,91 @@ with tabs[1]:
         else:
             st.success("Dataset format is valid!")
 
+
 # -------------------------------------------
-# FORECAST TAB
+# FORECAST TAB (Manual Data Entry)
 # -------------------------------------------
 with tabs[2]:
-    st.header("📈 Forecast Future Sales")
+    st.header("📈 Forecast Future Sales (Manual Input)")
 
-    if st.session_state.dataset is None:
-        st.warning("Please upload a dataset first.")
-    else:
-        df = st.session_state.dataset
+    st.info("Enter past sales data manually to generate ARIMA forecast.")
 
-        # Clean date column
-        df["date"] = pd.to_datetime(df["date"])
+    # Select product
+    selected_product = st.text_input("Enter Product Name", "Product A")
 
-        # Select product
-        product_list = df["product"].unique()
-        selected_product = st.selectbox("Select Product", product_list)
+    # Number of past months
+    n_past = st.number_input("How many past months of data do you have?", min_value=1, max_value=36, value=6)
 
-        product_data = df[df["product"] == selected_product].sort_values("date")
+    st.write("### Enter Past Sales Data")
 
-        st.write(f"### 📊 Historical Data for {selected_product}")
-        st.line_chart(product_data.set_index("date")["sales"])
+    # Create input boxes dynamically
+    past_sales = []
+    for i in range(n_past):
+        value = st.number_input(f"Month {i+1} sales", min_value=0.0, value=100.0)
+        past_sales.append(value)
 
-        # Forecast months
-        n_months = st.slider("Months to Forecast", 1, 24, 12)
+    # Convert to DataFrame
+    import pandas as pd
+    import numpy as np
 
-        # Train ARIMA
-        try:
-            model = ARIMA(product_data["sales"], order=(1, 1, 1))
-            model_fit = model.fit()
-            forecast = model_fit.forecast(steps=n_months)
-            st.success("Model trained successfully!")
-        except Exception as e:
-            st.error(f"ARIMA training failed: {e}")
-            st.stop()
+    # Create date index automatically
+    from datetime import datetime
+    import pandas as pd
 
-        # Create forecast df
-        future_dates = pd.date_range(
-            start=product_data["date"].iloc[-1] + pd.offsets.MonthEnd(1),
-            periods=n_months,
-            freq="M"
-        )
+    dates = pd.date_range(end=pd.Timestamp.today(), periods=n_past, freq="M")
 
-        forecast_df = pd.DataFrame({
-            "Month": future_dates,
-            "Predicted Sales": forecast
-        })
+    df_manual = pd.DataFrame({
+        "date": dates,
+        "product": [selected_product] * n_past,
+        "sales": past_sales
+    })
 
-        st.write("### 🔮 Forecasted Sales")
-        st.dataframe(forecast_df)
+    st.write("### 📊 Your Entered Data")
+    st.dataframe(df_manual)
 
-        # Download button
-        csv_data = forecast_df.to_csv(index=False).encode('utf-8')
-        st.download_button("⬇ Download Forecast CSV", csv_data, "forecast.csv", "text/csv")
+    # Number of months to forecast
+    n_future = st.slider("Months to Forecast", 1, 24, 12)
 
+    # Train ARIMA Model
+    try:
+        from statsmodels.tsa.arima.model import ARIMA
+
+        model = ARIMA(df_manual["sales"], order=(1, 1, 1))
+        model_fit = model.fit()
+        forecast = model_fit.forecast(steps=n_future)
+
+        st.success("ARIMA Model Trained Successfully!")
+    except Exception as e:
+        st.error(f"Error training ARIMA model: {e}")
+        st.stop()
+
+    # Create future date index
+    future_dates = pd.date_range(start=df_manual["date"].iloc[-1] + pd.offsets.MonthEnd(1),
+                                 periods=n_future, freq="M")
+
+    forecast_df = pd.DataFrame({
+        "Month": future_dates,
+        "Predicted Sales": forecast
+    })
+
+    st.write("### 🔮 Forecasted Sales")
+    st.dataframe(forecast_df)
+
+    # Plot graph
+    import matplotlib.pyplot as plt
+
+    st.write("### 📈 Forecast Graph")
+
+    fig, ax = plt.subplots(figsize=(10, 4))
+    ax.plot(df_manual["date"], df_manual["sales"], label="Historical Sales")
+    ax.plot(future_dates, forecast, label="Forecasted Sales")
+    ax.legend()
+    st.pyplot(fig)
+
+    # Download CSV
+    csv_data = forecast_df.to_csv(index=False).encode('utf-8')
+    st.download_button("⬇ Download Forecast CSV", csv_data, "forecast.csv", "text/csv")
+    
 # -------------------------------------------
 # CHARTS TAB
 # -------------------------------------------
