@@ -182,9 +182,6 @@ with tabs[4]:
         - **Supports:** Trend + seasonality  
         - **Input Required:** date, product, sales  
     """)
-    import streamlit as st
-from openai import OpenAI
-
 st.header("🎤 Voice AI Assistant")
 
 client = OpenAI(api_key=st.secrets["OPENAI_API_KEY"])
