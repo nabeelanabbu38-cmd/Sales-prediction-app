@@ -210,11 +210,10 @@ if not st.session_state.welcome_played:
         If you need help, just speak to me or type in the chat.
         """
 
-        # Convert text → speech
         speech = client.audio.speech.create(
-            model="gpt-4o-mini-tts",
-            voice="alloy",
-            input=welcome_text
+    model="gpt-4o-mini-tts",
+    voice="alloy",
+    input=welcome_text
         )
 
         audio_bytes = speech.read()
