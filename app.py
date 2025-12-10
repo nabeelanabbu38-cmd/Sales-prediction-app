@@ -1,4 +1,5 @@
-import streamlit as st from openai import OpenAI
+import streamlit as st
+from openai import OpenAI
 import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
