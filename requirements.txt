@@ -4,5 +4,5 @@ numpy
 matplotlib
 statsmodels
 openai>=1.0.0
-pudub
+pydub
 
