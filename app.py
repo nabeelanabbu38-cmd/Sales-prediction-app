@@ -1,4 +1,4 @@
-import streamlit as st
+import streamlit as st from openai import OpenAI
 import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
@@ -182,3 +182,51 @@ with tabs[4]:
         - **Supports:** Trend + seasonality  
         - **Input Required:** date, product, sales  
     """)
+    import streamlit as st
+from openai import OpenAI
+
+st.header("🎤 Voice AI Assistant")
+
+client = OpenAI(api_key=st.secrets["OPENAI_API_KEY"])
+
+# Show the welcome message only once
+if "welcome_played" not in st.session_state:
+    st.session_state.welcome_played = False
+
+# Button to start the assistant
+if not st.session_state.welcome_played:
+    if st.button("▶️ Start AI Assistant"):
+        
+        # The welcome message
+        welcome_text = """
+        Welcome to the Sales Prediction App!
+        I will guide you through the steps.
+        
+        Step 1: Enter the required inputs in the sidebar,
+        such as store information or date.
+        
+        Step 2: Click on the Predict button.
+        
+        Step 3: I will show you the estimated sales for that day.
+        
+        If you need help, just speak to me or type in the chat.
+        """
+
+        # Convert text → speech
+        speech = client.audio.speech.create(
+            model="gpt-4o-mini-tts",
+            voice="alloy",
+            input=welcome_text
+        )
+
+        audio_bytes = speech.read()
+
+        # Play the audio
+        st.audio(audio_bytes, format="audio/mp3")
+
+        # Mark as played
+        st.session_state.welcome_played = True
+
+# After welcome, you can add your voice assistant logic here
+st.write("Assistant is ready. Ask anything below 👇")
+
