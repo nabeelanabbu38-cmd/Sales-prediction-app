@@ -1,82 +1,125 @@
 import streamlit as st
-import PyPDF2
-import re
-import nltk
+import pandas as pd
+import matplotlib.pyplot as plt
+from statsmodels.tsa.arima.model import ARIMA
+from datetime import timedelta
 
-from sklearn.feature_extraction.text import TfidfVectorizer
-from sklearn.metrics.pairwise import cosine_similarity
-
-# Download stopwords
-nltk.download('stopwords')
-from nltk.corpus import stopwords
-
-
-# ---------- FUNCTIONS ----------
-
-def extract_text_from_pdf(pdf_file):
-    text = ""
-    reader = PyPDF2.PdfReader(pdf_file)
-    for page in reader.pages:
-        if page.extract_text():
-            text += page.extract_text()
-    return text
-
-
-def clean_text(text):
-    text = text.lower()
-    text = re.sub(r'[^a-z ]', '', text)
-    words = text.split()
-    words = [w for w in words if w not in stopwords.words('english')]
-    return " ".join(words)
-
-
-def calculate_similarity(resumes, job_desc):
-    documents = resumes + [job_desc]
-    vectorizer = TfidfVectorizer()
-    tfidf_matrix = vectorizer.fit_transform(documents)
-    similarity_scores = cosine_similarity(
-        tfidf_matrix[:-1], tfidf_matrix[-1]
-    )
-    return similarity_scores.flatten()
-
-
-# ---------- STREAMLIT UI ----------
-
-st.set_page_config(page_title="AI Resume Screening System", layout="centered")
-
-st.title("🧠 AI Resume Screening System")
-st.write("Upload resumes and paste a job description to get match percentage")
-
-uploaded_files = st.file_uploader(
-    "Upload Resume PDFs",
-    type=["pdf"],
-    accept_multiple_files=True
+# ---------------- PAGE CONFIG ----------------
+st.set_page_config(
+    page_title="📈 Sales Prediction App",
+    page_icon="📊",
+    layout="centered"
 )
 
-job_description = st.text_area("Paste Job Description Here")
+st.title("📈 Sales Prediction using ARIMA")
+st.subheader("Time Series Forecasting Web App")
 
-if st.button("🔍 Screen Resumes"):
-    if not uploaded_files or job_description.strip() == "":
-        st.warning("Please upload resumes and enter a job description")
-    else:
-        resume_texts = []
-        resume_names = []
+st.markdown(
+    """
+    This application predicts **future sales** using the **ARIMA time-series model**.
+    
+    **Steps:**
+    1. Upload sales dataset  
+    2. Select date & sales columns  
+    3. Train ARIMA model  
+    4. Forecast future sales  
+    """
+)
 
-        for file in uploaded_files:
-            text = extract_text_from_pdf(file)
-            cleaned = clean_text(text)
-            resume_texts.append(cleaned)
-            resume_names.append(file.name)
+# ---------------- FILE UPLOAD ----------------
+uploaded_file = st.file_uploader(
+    "📂 Upload CSV file (Date, Sales)",
+    type=["csv"]
+)
 
-        cleaned_jd = clean_text(job_description)
-        scores = calculate_similarity(resume_texts, cleaned_jd)
+if uploaded_file is not None:
+    df = pd.read_csv(uploaded_file)
 
-        results = sorted(
-            zip(resume_names, scores),
-            key=lambda x: x[1],
-            reverse=True
-        )
+    st.success("✅ File uploaded successfully")
 
-        st.subheader("📊 Match Results")
-        for name, score in results:
-            st.write(f"📄 **{name}** → **{round(score * 100, 2)}% match**")
+    st.write("### 📄 Dataset Preview")
+    st.dataframe(df.head())
+
+    # ---------------- COLUMN SELECTION ----------------
+    date_col = st.selectbox("📅 Select Date Column", df.columns)
+    sales_col = st.selectbox("💰 Select Sales Column", df.columns)
+
+    # ---------------- DATA PREPROCESSING ----------------
+    df[date_col] = pd.to_datetime(df[date_col])
+    df = df.sort_values(by=date_col)
+    df.set_index(date_col, inplace=True)
+
+    sales_data = df[sales_col]
+
+    st.write("### 📊 Historical Sales Trend")
+    fig, ax = plt.subplots()
+    ax.plot(sales_data, label="Sales")
+    ax.set_xlabel("Date")
+    ax.set_ylabel("Sales")
+    ax.legend()
+    st.pyplot(fig)
+
+    # ---------------- MODEL PARAMETERS ----------------
+    st.write("### ⚙️ ARIMA Model Configuration")
+
+    p = st.slider("AR (p)", 0, 5, 1)
+    d = st.slider("Differencing (d)", 0, 2, 1)
+    q = st.slider("MA (q)", 0, 5, 1)
+
+    forecast_days = st.slider(
+        "📆 Forecast Days",
+        min_value=1,
+        max_value=60,
+        value=10
+    )
+
+    # ---------------- TRAIN & PREDICT ----------------
+    if st.button("🚀 Train Model & Predict"):
+        try:
+            model = ARIMA(sales_data, order=(p, d, q))
+            model_fit = model.fit()
+
+            forecast = model_fit.forecast(steps=forecast_days)
+
+            future_dates = [
+                sales_data.index[-1] + timedelta(days=i)
+                for i in range(1, forecast_days + 1)
+            ]
+
+            forecast_df = pd.DataFrame({
+                "Date": future_dates,
+                "Predicted Sales": forecast.values
+            })
+
+            st.success("✅ Forecast Generated Successfully")
+
+            st.write("### 🔮 Predicted Sales")
+            st.dataframe(forecast_df)
+
+            # ---------------- FORECAST PLOT ----------------
+            st.write("### 📉 Sales Forecast Visualization")
+            fig2, ax2 = plt.subplots()
+            ax2.plot(sales_data, label="Historical Sales")
+            ax2.plot(
+                forecast_df["Date"],
+                forecast_df["Predicted Sales"],
+                label="Predicted Sales",
+                linestyle="--"
+            )
+            ax2.set_xlabel("Date")
+            ax2.set_ylabel("Sales")
+            ax2.legend()
+            st.pyplot(fig2)
+
+        except Exception as e:
+            st.error(f"❌ Error: {e}")
+
+else:
+    st.info("👆 Please upload a CSV file to get started")
+
+# ---------------- FOOTER ----------------
+st.markdown("---")
+st.markdown(
+    "👩‍💻 **Project:** Sales Prediction using ARIMA  \n"
+    "📌 **Tech Stack:** Python, Streamlit, ARIMA, Pandas, Matplotlib"
+    )
