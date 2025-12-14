@@ -3,141 +3,141 @@ import pandas as pd
 import matplotlib.pyplot as plt
 from statsmodels.tsa.arima.model import ARIMA
 
-# ---------------- PAGE CONFIG ----------------
+# ------------------ PAGE CONFIG ------------------
 st.set_page_config(
-    page_title="Sales Prediction using ARIMA",
-    page_icon="📊",
+    page_title="Sales Prediction Using ARIMA",
     layout="wide"
 )
 
-# ---------------- TITLE ----------------
-st.title("📊 Sales Prediction Using ARIMA Model")
+# ------------------ TITLE ------------------
+st.markdown("## 📊 Sales Prediction Using ARIMA Model")
 st.write(
-    "This application predicts future sales using historical sales data "
-    "with the **ARIMA time series forecasting model**."
+    "This application predicts **future sales** using historical sales data "
+    "with the **ARIMA time-series forecasting model**."
 )
 
-# ---------------- CSV FORMAT INFO ----------------
+# ------------------ CSV FORMAT INFO ------------------
 with st.expander("📌 CSV File Format (Important)"):
     st.markdown("""
-    Your CSV file **must contain exactly two columns**:
+    Your CSV **must contain** the following columns:
 
     | Column Name | Description |
     |------------|-------------|
-    | `Date`     | Date (YYYY-MM-DD) |
-    | `Sales`    | Sales value (number) |
+    | date | Month or date (YYYY-MM or YYYY-MM-DD) |
+    | sales | Sales value (numeric) |
 
     **Example:**
     ```
-    Date,Sales
-    2023-01-01,120
-    2023-02-01,150
-    2023-03-01,180
+    date,sales
+    2024-01,1200
+    2024-02,1500
+    2024-03,1700
     ```
-
-    - Date column must be in **date format**
-    - Sales must be **numeric**
     """)
 
-st.info("👉 Upload a CSV file OR add data manually to begin prediction.")
+# ------------------ USER INPUT SECTION ------------------
+st.markdown("### 🧾 Product & Marketing Details")
 
-# ---------------- DATA INPUT SECTION ----------------
-tab1, tab2 = st.tabs(["📂 Upload CSV", "✍️ Manual Data Entry"])
+col1, col2, col3, col4 = st.columns(4)
 
-data = None
+with col1:
+    product_name = st.text_input("Product Name")
 
-# ---------- TAB 1: CSV UPLOAD ----------
-with tab1:
+with col2:
+    product_price = st.number_input("Product Price", min_value=0.0)
+
+with col3:
+    advertising_cost = st.number_input("Advertising Cost", min_value=0.0)
+
+with col4:
+    promotion_cost = st.number_input("Promotion Cost", min_value=0.0)
+
+# ------------------ DATA INPUT OPTIONS ------------------
+st.markdown("### 📥 Upload CSV or Enter Past Sales Manually")
+
+data_option = st.radio(
+    "Choose input method:",
+    ["Upload CSV", "Enter Manually"]
+)
+
+df = None
+
+# ------------------ CSV UPLOAD ------------------
+if data_option == "Upload CSV":
     uploaded_file = st.file_uploader("Upload CSV file", type=["csv"])
+    if uploaded_file:
+        df = pd.read_csv(uploaded_file)
+        df["date"] = pd.to_datetime(df["date"])
+        df = df.sort_values("date")
 
-    if uploaded_file is not None:
-        data = pd.read_csv(uploaded_file)
-        data["Date"] = pd.to_datetime(data["Date"])
-        data = data.sort_values("Date")
+# ------------------ MANUAL INPUT ------------------
+if data_option == "Enter Manually":
+    st.write("Enter **past 3 months sales data**")
 
-        st.success("✅ CSV file loaded successfully")
-        st.dataframe(data)
+    m1 = st.number_input("Month 1 Sales", min_value=0)
+    m2 = st.number_input("Month 2 Sales", min_value=0)
+    m3 = st.number_input("Month 3 Sales", min_value=0)
 
-# ---------- TAB 2: MANUAL ENTRY ----------
-with tab2:
-    st.write("Enter sales data manually:")
+    if st.button("Create Dataset"):
+        df = pd.DataFrame({
+            "date": pd.date_range(start="2024-01-01", periods=3, freq="M"),
+            "sales": [m1, m2, m3]
+        })
 
-    dates = st.text_area(
-        "Dates (comma separated, YYYY-MM-DD)",
-        "2023-01-01,2023-02-01,2023-03-01"
-    )
-    sales = st.text_area(
-        "Sales values (comma separated)",
-        "100,150,180"
-    )
+# ------------------ PREDICTION ------------------
+if df is not None and len(df) >= 3:
 
-    if st.button("Add Manual Data"):
-        try:
-            date_list = [d.strip() for d in dates.split(",")]
-            sales_list = [float(s.strip()) for s in sales.split(",")]
+    st.markdown("## 📈 Sales Analysis & Prediction")
 
-            data = pd.DataFrame({
-                "Date": pd.to_datetime(date_list),
-                "Sales": sales_list
-            }).sort_values("Date")
+    colA, colB = st.columns(2)
 
-            st.success("✅ Manual data added successfully")
-            st.dataframe(data)
-
-        except Exception as e:
-            st.error("❌ Error in manual data format. Please check inputs.")
-
-# ---------------- MODEL & VISUALIZATION ----------------
-if data is not None and len(data) >= 5:
-    st.subheader("📈 Sales Analysis & Forecast")
-
-    data.set_index("Date", inplace=True)
-
-    # Forecast horizon
-    steps = st.slider("Select number of months to predict", 1, 12, 5)
-
-    # Train ARIMA
-    model = ARIMA(data["Sales"], order=(1, 1, 1))
-    model_fit = model.fit()
-
-    forecast = model_fit.forecast(steps=steps)
-
-    forecast_index = pd.date_range(
-        start=data.index[-1],
-        periods=steps + 1,
-        freq="M"
-    )[1:]
-
-    forecast_series = pd.Series(forecast, index=forecast_index)
-
-    # ---------------- SIDE BY SIDE CHARTS ----------------
-    col1, col2 = st.columns(2)
-
-    # ---- Chart 1: Historical Sales ----
-    with col1:
-        st.markdown("### 📊 Historical Sales")
+    # ------------------ HISTORICAL CHART ------------------
+    with colA:
+        st.subheader("📊 Historical Sales")
         fig1, ax1 = plt.subplots()
-        ax1.plot(data.index, data["Sales"], marker="o")
+        ax1.plot(df["date"], df["sales"], marker="o")
         ax1.set_xlabel("Date")
         ax1.set_ylabel("Sales")
         st.pyplot(fig1)
 
-    # ---- Chart 2: Forecast ----
-    with col2:
-        st.markdown("### 🔮 Forecasted Sales")
+    # ------------------ ARIMA MODEL ------------------
+    model = ARIMA(df["sales"], order=(1, 1, 1))
+    model_fit = model.fit()
+    forecast = model_fit.forecast(steps=3)
+
+    future_dates = pd.date_range(
+        start=df["date"].iloc[-1], periods=4, freq="M"
+    )[1:]
+
+    forecast_df = pd.DataFrame({
+        "date": future_dates,
+        "sales": forecast
+    })
+
+    # ------------------ FORECAST CHART ------------------
+    with colB:
+        st.subheader("🔮 Future Sales Prediction")
         fig2, ax2 = plt.subplots()
-        ax2.plot(data.index, data["Sales"], label="Actual")
-        ax2.plot(forecast_series.index, forecast_series, label="Forecast", marker="o")
+        ax2.plot(df["date"], df["sales"], label="Past Sales", marker="o")
+        ax2.plot(forecast_df["date"], forecast_df["sales"],
+                 label="Predicted Sales", marker="o")
         ax2.legend()
         ax2.set_xlabel("Date")
         ax2.set_ylabel("Sales")
         st.pyplot(fig2)
 
-    # ---------------- FORECAST TABLE ----------------
-    st.subheader("📋 Forecasted Values")
-    st.dataframe(forecast_series.reset_index().rename(
-        columns={"index": "Date", 0: "Predicted Sales"}
-    ))
+    # ------------------ TABLE ------------------
+    st.markdown("### 📋 Predicted Sales Table")
+    st.dataframe(forecast_df)
+
+    # ------------------ SUMMARY ------------------
+    st.success(f"""
+    ✅ Prediction completed for **{product_name}**
+
+    • Product Price: ₹{product_price}  
+    • Advertising Cost: ₹{advertising_cost}  
+    • Promotion Cost: ₹{promotion_cost}  
+    """)
 
 else:
-    st.warning("⚠️ Please provide at least **5 data points** for ARIMA prediction.")
+    st.info("Please upload a CSV or enter past sales data to continue.")
